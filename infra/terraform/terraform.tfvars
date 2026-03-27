@@ -1,5 +1,0 @@
-aws_region        = "ap-northeast-2"
-project_name      = "olist-pipeline"
-account_id        = "589159458581"
-redshift_username = "admin"
-redshift_password = "Admin1234!"
