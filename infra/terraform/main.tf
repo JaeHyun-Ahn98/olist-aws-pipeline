@@ -81,7 +81,7 @@ resource "aws_redshift_cluster" "olist" {
   database_name       = "olistdb"
   master_username     = var.redshift_username
   master_password     = var.redshift_password
-  node_type           = "dc2.large"
+  node_type           = "ra3.xlplus"
   cluster_type        = "single-node"
   skip_final_snapshot = true
 
@@ -93,4 +93,29 @@ resource "aws_redshift_cluster" "olist" {
   tags = {
     Project = var.project_name
   }
+}
+
+# 인터넷 게이트웨이 — VPC가 외부 인터넷과 통신할 수 있게
+resource "aws_internet_gateway" "olist_igw" {
+  vpc_id = aws_vpc.olist_vpc.id
+
+  tags = { Name = "${var.project_name}-igw" }
+}
+
+# 라우팅 테이블 — 외부 트래픽을 인터넷 게이트웨이로 보내도록
+resource "aws_route_table" "olist_rt" {
+  vpc_id = aws_vpc.olist_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.olist_igw.id
+  }
+
+  tags = { Name = "${var.project_name}-rt" }
+}
+
+# 라우팅 테이블을 서브넷에 연결
+resource "aws_route_table_association" "olist_rta" {
+  subnet_id      = aws_subnet.olist_subnet.id
+  route_table_id = aws_route_table.olist_rt.id
 }
