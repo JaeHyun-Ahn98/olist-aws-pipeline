@@ -67,6 +67,14 @@ resource "aws_security_group" "redshift_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+ # Glue가 VPC 안에서 실행될 때 필요한 self 규칙
+  ingress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    self      = true
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -118,4 +126,15 @@ resource "aws_route_table" "olist_rt" {
 resource "aws_route_table_association" "olist_rta" {
   subnet_id      = aws_subnet.olist_subnet.id
   route_table_id = aws_route_table.olist_rt.id
+}
+
+# S3 VPC 엔드포인트 — Glue가 VPC 안에서 S3 접근할 수 있게
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.olist_vpc.id
+  service_name = "com.amazonaws.ap-northeast-2.s3"
+  route_table_ids = [aws_route_table.olist_rt.id]
+
+  tags = {
+    Name = "${var.project_name}-s3-endpoint"
+  }
 }
