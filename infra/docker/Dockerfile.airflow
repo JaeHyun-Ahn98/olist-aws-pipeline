@@ -1,0 +1,13 @@
+FROM apache/airflow:2.9.0-python3.10
+ 
+USER root
+RUN apt-get update && apt-get install -y git && apt-get clean
+ 
+USER airflow
+ 
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+ 
+# dbt profiles 설정
+RUN mkdir -p /home/airflow/.dbt
+COPY dbt_profiles.yml /home/airflow/.dbt/profiles.yml
