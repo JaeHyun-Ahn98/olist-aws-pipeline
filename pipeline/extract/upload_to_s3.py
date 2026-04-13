@@ -33,5 +33,8 @@ def upload_csv_to_s3():
 
     print(f'\n총 {len(csv_files)}개 파일 업로드 완료!')
 
+def main():
+    upload_csv_to_s3()
+
 if __name__ == '__main__':
     upload_csv_to_s3()
