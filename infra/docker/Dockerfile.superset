@@ -1,0 +1,6 @@
+FROM apache/superset:latest
+
+USER root
+RUN /app/.venv/bin/pip install sqlalchemy-redshift redshift-connector psycopg2-binary
+
+USER superset
