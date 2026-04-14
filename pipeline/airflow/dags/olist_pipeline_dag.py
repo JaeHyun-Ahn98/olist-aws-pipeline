@@ -14,6 +14,9 @@ default_args = {
     'owner': 'airflow',
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
+    'email': ['jaehyen07@gmail.com'],
+    'email_on_failure': True,
+    'email_on_retry': False,
 }
 
 def upload_to_s3():
