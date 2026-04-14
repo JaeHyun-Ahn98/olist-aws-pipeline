@@ -12,6 +12,7 @@ staged as (
         review_creation_date::timestamp as created_at,
         review_answer_timestamp::timestamp as answered_at
     from source
+    where review_score ~ '^[1-5]$'  -- 유효하지 않은 데이터 필터링
 )
 
 select * from staged

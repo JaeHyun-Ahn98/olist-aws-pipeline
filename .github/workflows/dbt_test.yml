@@ -1,0 +1,45 @@
+name: dbt test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dbt-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dbt-redshift
+        run: pip install dbt-redshift==1.9.0
+
+      - name: Create dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat << EOF > ~/.dbt/profiles.yml
+          olist_pipeline:
+            target: dev
+            outputs:
+              dev:
+                type: redshift
+                host: ${{ secrets.REDSHIFT_HOST }}
+                port: 5439
+                user: ${{ secrets.REDSHIFT_USER }}
+                password: ${{ secrets.REDSHIFT_PASSWORD }}
+                dbname: olistdb
+                schema: analytics
+                threads: 4
+          EOF
+
+      - name: Run dbt test
+        working-directory: transform/olist_pipeline
+        run: dbt test
