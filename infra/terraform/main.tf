@@ -128,3 +128,53 @@ resource "aws_vpc_endpoint" "redshift" {
   private_dns_enabled = true
   tags                = { Name = "${var.project_name}-redshift-endpoint" }
 }
+
+# EC2 키페어
+resource "aws_key_pair" "olist_key" {
+  key_name   = "${var.project_name}-key"
+  public_key = file("~/.ssh/olist_key.pub")
+}
+
+# EC2 보안 그룹
+resource "aws_security_group" "ec2_sg" {
+  name   = "${var.project_name}-ec2-sg"
+  vpc_id = aws_vpc.olist_vpc.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 8088
+    to_port     = 8088
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# EC2 인스턴스
+resource "aws_instance" "superset" {
+  ami                         = "ami-062cf18d655c0b1e8"  # Ubuntu 22.04 서울 리전
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.olist_subnet.id
+  vpc_security_group_ids      = [aws_security_group.ec2_sg.id]
+  key_name                    = aws_key_pair.olist_key.key_name
+  associate_public_ip_address = true
+
+  tags = { Name = "${var.project_name}-superset" }
+}
+
+# Elastic IP
+resource "aws_eip" "superset" {
+  instance = aws_instance.superset.id
+  domain   = "vpc"
+  tags     = { Name = "${var.project_name}-superset-eip" }
+}
