@@ -89,21 +89,36 @@ dbt test 실행 중 `review_score` 컬럼에 날짜값이 혼재됨을 발견. r
 
 ## 🔥 핵심 문제 해결 경험
 
-### 1. dbt + Airflow 의존성 충돌 → DockerOperator로 분리
+### 1. Glue → Redshift 연결 에러 4연타
 
-Airflow 컨테이너에 `dbt-redshift` 직접 설치 시 의존성 충돌 발생. dbt 공식 이미지(`ghcr.io/dbt-labs/dbt-redshift:1.9.0`)를 DockerOperator로 실행해 완전히 격리. 각 도구의 공식 이미지를 활용하는 방식의 효용성 확인.
+Glue ETL을 VPC 안에서 실행하면서 Redshift에 연결하려다 에러가 4번 연속으로 발생
 
-### 2. Airflow Jinja 템플릿 vs 환경변수 혼용
+- **53분 무한 대기**: Glue가 Redshift에 접근을 못해 응답 없이 계속 기다리는 상태
+- **보안 그룹 에러**: Glue 내부 통신을 위한 self 참조 규칙 누락 → Terraform으로 추가
+- **S3 접근 실패**: VPC 안에서 S3에 접근하려면 별도 엔드포인트 필요 → Terraform으로 추가
+- **STS 인증 타임아웃**: VPC 안에서 AWS 인증 서비스 접근 불가로 계속 실패
 
-DockerOperator environment에 `{{ var.value.AWS_ACCESS_KEY_ID }}` Jinja 방식 사용 시 `KeyError` 발생. docker-compose.yml에서 환경변수가 이미 주입되어 있으므로 `os.environ.get()` 방식으로 변경.
+결국 VPC Connection을 제거하고 Redshift의 public endpoint로 직접 연결하는 방식으로 전환해 해결. AWS 네트워크 구성은 VPC, 보안 그룹, 엔드포인트가 모두 맞아야 동작한다는 것을 직접 경험.
 
-### 3. Superset Redshift 드라이버 인식 실패
+### 2. Glue 재실행 시 데이터 중복 적재
 
-Superset 컨테이너가 `/app/.venv/bin/python`을 사용하는 자체 가상환경을 보유해 일반 `pip install`로는 설치되지 않는 문제. root 권한으로 `ensurepip` 실행 후 venv의 Python으로 직접 설치해 해결.
+Glue Job을 여러 번 실행하면 같은 데이터가 계속 쌓이는 문제 발생. raw 테이블에 데이터가 6배씩 늘어남을 확인. dbt staging 모델에 `SELECT DISTINCT`를 추가해 dbt 변환 단계에서 중복을 걸러내는 방식으로 해결.
 
-### 4. Glue 중복 적재 → dbt staging에서 멱등성 확보
+### 3. dbt + Airflow 의존성 충돌 → DockerOperator로 분리
 
-Glue Job 재실행 시 raw 테이블에 동일 데이터가 중복 적재되는 문제. 모든 staging 모델에 `SELECT DISTINCT` 추가로 멱등성(idempotency) 확보. raw 레이어는 원본 그대로 유지하고 staging에서 품질을 보정하는 레이어 역할 분리 원칙 적용.
+Airflow 컨테이너에 dbt를 직접 설치하면 패키지 버전 충돌 발생. dbt 공식 Docker 이미지를 DockerOperator로 별도 실행하는 방식으로 전환. 각 도구를 독립된 컨테이너로 분리하면 버전 관리가 훨씬 명확해진다는 것을 확인.
+
+### 4. Airflow에서 AWS 키 못 읽는 문제
+
+DockerOperator에서 `{{ var.value.AWS_ACCESS_KEY_ID }}` 방식으로 AWS 키를 불러오려다 `KeyError` 발생. docker-compose.yml에서 이미 환경변수로 주입되어 있어서 `os.environ.get()`으로 읽는 방식으로 변경해 해결.
+
+### 5. Superset에서 Redshift 연결 안 되는 문제
+
+psycopg2 드라이버를 설치해도 Superset이 인식하지 못하는 문제 발생. Superset 컨테이너가 자체 Python 가상환경을 사용하기 때문에 일반 `pip install`로는 그 환경에 설치가 안 되는 구조였음. 관리자 권한으로 해당 가상환경에 직접 설치해 해결.
+
+### 6. dbt test에서 데이터 오류 발견
+
+dbt test 실행 중 리뷰 점수 컬럼에 날짜 값이 섞여 있는 문제 발견. CSV 파일에서 텍스트 안에 쉼표가 있으면 컬럼이 밀려서 잘못 들어가는 CSV 파싱 특성 때문. staging에서 유효하지 않은 값을 필터링해 해결.
 
 ---
 
