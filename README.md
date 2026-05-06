@@ -14,7 +14,7 @@
 
 ## 📊 대시보드
 
-👉 **[Superset Dashboard 보기](http://3.39.103.198:8088/superset/dashboard/1/)**
+> 비용 절감을 위해 AWS 리소스(Redshift, EC2)는 현재 중지 상태입니다.
 
 ---
 
